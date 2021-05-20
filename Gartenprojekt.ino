@@ -10,8 +10,6 @@ const int   daylightOffset_sec = 3600;
 struct tm timeinfo;
 
 
-
-
 #include <DHT.h> 
 #define DHTPIN 4
 #define DHTTYPE DHT11
@@ -56,12 +54,10 @@ int step_3 =25;
 bool auf = false;
 bool ab = false;
 
-//const char* resource = "/trigger/Gartenprojekt_Eingaben/with/key/mI6bPCAB_YhdUddiVR5GYLaV3JSFh6NdccDjy3fuM4K";
-//const char* server = "maker.ifttt.com";
 
 void printLocalTime();
   
-
+  //Öffnet und schließt die Gartenbeetabdeckung
 void auf_ab(int port, int auf){
   digitalWrite(port, LOW);
   delay(intOeffnung);
@@ -74,6 +70,7 @@ void auf_ab(int port, int auf){
   prefs.putInt("anzOeffnung", anzOeffnung);
 }
 
+//Steuert die Öffnung der Gartenbeetabdeckung über den Temperatursensor
 void oeffnung(){
   
     if (temperatur < step_1){
@@ -99,6 +96,7 @@ void oeffnung(){
       }
   }
 
+//Führt die manuelle Öffnung über Thinger.io aus
 void manuelleOeffnung(){
     if (auf){  
       auf_ab(25,1);
@@ -110,6 +108,7 @@ void manuelleOeffnung(){
     }
   }
 
+//Steuert die Zeituhr für die Beregnung und auch die Steuerung der Beregnung über einen Bodenfeuchtesensor
 void schaltuhr(){
     
     if (timer_int_1 > 0){
@@ -148,6 +147,7 @@ void schaltuhr(){
     }
   }
 
+//Sichert die Daten auf dem ESP32
 void sicherung(){
   prefs.putInt("intBodenfeuchte", intBodenfeuchte);
   prefs.putInt("timer_h_1", timer_h_1);
@@ -162,6 +162,7 @@ void sicherung(){
   prefs.putInt("anzOeffnung", anzOeffnung);
 }
 
+//Holt die gesicherten Daten vom ESP32
 void back(){
   intBodenfeuchte = prefs.getInt("intBodenfeuchte", 0);
   timer_h_1 = prefs.getInt("timer_h_1", 0);
@@ -293,13 +294,6 @@ void loop() {
 
   tuerZu=digitalRead(tasterPin);
   
-  /*
-  if (tuerZu == LOW){
-    digitalWrite(23,HIGH);
-    delay(500);
-    digitalWrite(23,LOW);
-  }
-*/
   if (!manuell){
     oeffnung();
   }else{
