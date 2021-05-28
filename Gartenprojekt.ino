@@ -60,8 +60,10 @@ void printLocalTime();
   //Öffnet und schließt die Gartenbeetabdeckung
 void auf_ab(int port, int auf){
   digitalWrite(port, LOW);
+  digitalWrite(33,LOW);
   delay(intOeffnung);
   digitalWrite(port,HIGH);
+  digitalWrite(33,HIGH);
   if (auf == 1){
     anzOeffnung =anzOeffnung+1;
   }else{
@@ -207,6 +209,7 @@ void setup() {
   thing["Tuer_zu"] >> [](pson& out){
       out = tuerZu;
 };
+
   thing["restart"] << inputValue(restart);
   thing["Bodenfeuchte-Messung"] << [](pson& in){
     in = analogRead(34);
@@ -293,6 +296,9 @@ void loop() {
   temperatur = dht.readTemperature();
 
   tuerZu=digitalRead(tasterPin);
+  //if (tuerZu ==1){
+  //  anzOeffnung=0;
+  //}
   
   if (!manuell){
     oeffnung();
@@ -306,9 +312,11 @@ void loop() {
     sicherung();
     daten_sichern=false;
   }
-    schaltuhr();
 
   
+
+  
+    schaltuhr();  
 }
 
 void printLocalTime()
