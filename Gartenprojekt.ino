@@ -28,10 +28,11 @@ ThingerESP32 thing(USERNAME, DEVICE_ID, DEVICE_CREDENTIAL);
 bool daten_sichern = false;
 
 bool manuell = false;
+bool messung = false;
 bool pumpe = false;
 bool restart = false;
 int tuerZu =0;
-#define tasterPin 18
+#define tasterPin 35
 int RelIn[] = {25,26,32,33};
 int bodenfeuchte = 0;
 int temperatur =0;
@@ -40,6 +41,7 @@ int bodenPin = 34;
 int intBodenfeuchte = 4100;
 int intOeffnung = 3000;
 int anzOeffnung = 0;
+int messInterval = 5;
 
 long myTimer = 0;
 int stunden = 0;
@@ -149,6 +151,15 @@ void schaltuhr(){
     }
   }
 
+void manuelleMessung(){
+    digitalWrite(23, HIGH);
+    bodenfeuchte = analogRead(34);
+    temperatur = dht.readTemperature();
+    messung = false;
+    delay(200);
+    digitalWrite(23,LOW);
+}
+
 //Sichert die Daten auf dem ESP32
 void sicherung(){
   prefs.putInt("intBodenfeuchte", intBodenfeuchte);
@@ -162,6 +173,8 @@ void sicherung(){
   prefs.putInt("step_2", step_2);
   prefs.putInt("step_3", step_3);
   prefs.putInt("anzOeffnung", anzOeffnung);
+  prefs.putInt("intOeffnung", intOeffnung);
+  prefs.putInt("Messinterval", messInterval);
 }
 
 //Holt die gesicherten Daten vom ESP32
@@ -177,6 +190,8 @@ void back(){
   step_2 = prefs.getInt("step_2", 0);
   step_3 = prefs.getInt("step_3", 0);
   anzOeffnung = prefs.getInt("anzOeffnung",0);
+  intOeffnung = prefs.getInt("intOeffnung",0);
+  messInterval = prefs.getInt("Messinterval",0);
 }
 
 void setup() {
@@ -201,6 +216,7 @@ void setup() {
     pinMode(RelIn[i], OUTPUT);
     digitalWrite(RelIn[i], HIGH);
   }
+  manuelleMessung();
 
   thing.add_wifi(SSID, SSID_PASSWORD);
 
@@ -211,9 +227,13 @@ void setup() {
 };
 
   thing["restart"] << inputValue(restart);
-  thing["Bodenfeuchte-Messung"] << [](pson& in){
-    in = analogRead(34);
-    bodenfeuchte = in;
+  thing["Messung"] << [](pson& in){
+    if(in.is_empty()){
+        in = messung;
+    }
+    else{
+        messung = in;
+    }
   };
 
   thing["auf"] << inputValue(auf);
@@ -228,6 +248,22 @@ void setup() {
 };
   
   thing["Anzahl_Öffnungen"] >> outputValue(anzOeffnung);
+  thing["Hebezeit"] << [](pson& in){
+    if(in.is_empty()){
+        in = intOeffnung;
+    }
+    else{
+        intOeffnung = in;
+    }
+  };
+  thing["Messinterval"] << [](pson& in){
+    if(in.is_empty()){
+        in = messInterval;
+    }
+    else{
+        messInterval = in;
+    }
+  };
   thing["Step - 1"] << [](pson& in){
     if(in.is_empty()){
         in = step_1;
@@ -285,20 +321,25 @@ void setup() {
 void loop() {
   thing.handle();
 
-  if (millis() > 5*60*1000 + myTimer) {
-    bodenfeuchte = analogRead(34);
+  if (millis() > messInterval*60*1000 + myTimer) {
+    manuelleMessung();
+
     
     Serial.println(bodenfeuchte);
     printLocalTime();
     myTimer = millis();
   }
-  luftfeuchtigkeit =dht.readHumidity();
-  temperatur = dht.readTemperature();
 
-  tuerZu=digitalRead(tasterPin);
-  //if (tuerZu ==1){
-  //  anzOeffnung=0;
-  //}
+  if (messung){
+    manuelleMessung();
+  }
+
+  luftfeuchtigkeit =dht.readHumidity();
+  
+  tuerZu=analogRead(tasterPin);
+  if (tuerZu ==4095){
+    anzOeffnung=0;
+  }
   
   if (!manuell){
     oeffnung();
