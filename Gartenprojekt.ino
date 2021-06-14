@@ -1,3 +1,7 @@
+#include <OneWire.h>
+
+#include <DallasTemperature.h>
+
 #define _DISABLE_TLS_
 
 #include <Preferences.h>
