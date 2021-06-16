@@ -1,8 +1,11 @@
-#include <OneWire.h>
-
-#include <DallasTemperature.h>
-
 #define _DISABLE_TLS_
+
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#define ONE_WIRE_BUS 4
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
 
 #include <Preferences.h>
 Preferences prefs;
@@ -14,10 +17,10 @@ const int   daylightOffset_sec = 3600;
 struct tm timeinfo;
 
 
-#include <DHT.h> 
-#define DHTPIN 4
-#define DHTTYPE DHT11
-DHT dht(DHTPIN, DHTTYPE);
+//#include <DHT.h> 
+//#define DHTPIN 4
+//#define DHTTYPE DHT11
+//DHT dht(DHTPIN, DHTTYPE);
 
 #include <ThingerESP32.h>
 #define USERNAME "klaustrausner"
@@ -39,7 +42,7 @@ int tuerZu =0;
 #define tasterPin 35
 int RelIn[] = {25,26,32,33};
 int bodenfeuchte = 0;
-int temperatur =0;
+float temperatur =0;
 int luftfeuchtigkeit = 0;
 int bodenPin = 34;
 int intBodenfeuchte = 4100;
@@ -158,7 +161,9 @@ void schaltuhr(){
 void manuelleMessung(){
     digitalWrite(23, HIGH);
     bodenfeuchte = analogRead(34);
-    temperatur = dht.readTemperature();
+    //temperatur = dht.readTemperature();
+    sensors.requestTemperatures();
+    temperatur = sensors.getTempCByIndex(0);
     messung = false;
     delay(200);
     digitalWrite(23,LOW);
@@ -200,7 +205,8 @@ void back(){
 
 void setup() {
   Serial.begin(115200);
-  dht.begin();
+  //dht.begin();
+  sensors.begin();
 
   prefs.begin("garten", false);
   back();
@@ -324,6 +330,7 @@ void setup() {
 
 void loop() {
   thing.handle();
+  //sensors.requestTemperatures();
 
   if (millis() > messInterval*60*1000 + myTimer) {
     manuelleMessung();
@@ -338,7 +345,7 @@ void loop() {
     manuelleMessung();
   }
 
-  luftfeuchtigkeit =dht.readHumidity();
+  //luftfeuchtigkeit =dht.readHumidity();
   
   tuerZu=analogRead(tasterPin);
   if (tuerZu ==4095){
