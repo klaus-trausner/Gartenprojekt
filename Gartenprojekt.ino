@@ -257,7 +257,7 @@ void setup() {
       out["Temperatur"] = temperatur;
 };
   
-  thing["Anzahl_Öffnungen"] >> outputValue(anzOeffnung);
+  thing["Anzahl_Öffnungen"] >> [](pson& out){ out = anzOeffnung; };
   thing["Hebezeit"] << [](pson& in){
     if(in.is_empty()){
         in = intOeffnung;
