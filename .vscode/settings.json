@@ -1,5 +1,5 @@
 {
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
     "arduino.defaultBaudRate": 115200,
-    "C_Cpp.errorSquiggles": "Disabled"
+    "C_Cpp.errorSquiggles": "Enabled"
 }

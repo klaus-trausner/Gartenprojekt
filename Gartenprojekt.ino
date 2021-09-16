@@ -1,3 +1,4 @@
+#define _DEBUG_
 #define _DISABLE_TLS_
 
 #include <OneWire.h>
@@ -27,10 +28,17 @@ struct tm timeinfo;
 #define DEVICE_ID "Gartenprojekt"
 #define DEVICE_CREDENTIAL "YkL7S&Z&Lql$sq"
 
-#define SSID "3HuiTube_2.4Ghz_7259"
+#define SSID "3HuiTube_2.4Ghz_7259_Ext"
 #define SSID_PASSWORD "6433828754"
 
 ThingerESP32 thing(USERNAME, DEVICE_ID, DEVICE_CREDENTIAL);
+
+#define trigPin 21
+#define echoPin 22
+
+long duration;
+int distance;
+int volumen;
 
 bool daten_sichern = false;
 
@@ -41,6 +49,10 @@ bool restart = false;
 int tuerZu =0;
 #define tasterPin 35
 int RelIn[] = {25,26,32,33};
+#define relayAb 25
+#define relayAuf 26
+#define relayPumpe 32
+#define relayNull 33
 int bodenfeuchte = 0;
 float temperatur =0;
 int luftfeuchtigkeit = 0;
@@ -68,109 +80,155 @@ void printLocalTime();
   
   //Öffnet und schließt die Gartenbeetabdeckung
 void auf_ab(int port, int auf){
+  Serial.println("auf_ab");
   digitalWrite(port, LOW);
-  digitalWrite(33,LOW);
-  delay(intOeffnung);
-  digitalWrite(port,HIGH);
-  digitalWrite(33,HIGH);
+  digitalWrite(relayNull,LOW);
+
   if (auf == 1){
     anzOeffnung =anzOeffnung+1;
+    delay(intOeffnung);
   }else{
     anzOeffnung =anzOeffnung-1;
+    delay(intOeffnung*0.9);
   } 
+  
+  digitalWrite(port,HIGH);
+  digitalWrite(relayNull,HIGH);
+  
   prefs.putInt("anzOeffnung", anzOeffnung);
 }
 
 //Steuert die Öffnung der Gartenbeetabdeckung über den Temperatursensor
 void oeffnung(){
+  //Serial.println("oeffnung");
   
     if (temperatur < step_1){
       while (anzOeffnung>0){
-        auf_ab(26,0);
+        auf_ab(relayAb,0);
       }  
     } else if (temperatur < step_2){
       if (anzOeffnung <1){
-        auf_ab(25,1);
+        auf_ab(relayAuf,1);
       }else if (anzOeffnung>1){
-          auf_ab(26,0);      
+          auf_ab(relayAb,0);      
       } 
     }else if (temperatur < step_3){
         if (anzOeffnung<2){
-          auf_ab(25,1);
+          auf_ab(relayAuf,1);
         } else if (anzOeffnung>2){
-          auf_ab(26,0);
+          auf_ab(relayAb,0);
         }
       }else{
         if (anzOeffnung < 4){
-          auf_ab(25,1);
+          auf_ab(relayAuf,1);
         }
       }
   }
 
 //Führt die manuelle Öffnung über Thinger.io aus
 void manuelleOeffnung(){
+  //Serial.println("manuelleOeffnung");
     if (auf){  
-      auf_ab(25,1);
+      auf_ab(relayAuf,1);
       auf = false;
     }
     if (ab){
-      auf_ab(26,0);
+      auf_ab(relayAb,0);
       ab=false;
     }
   }
 
 //Steuert die Zeituhr für die Beregnung und auch die Steuerung der Beregnung über einen Bodenfeuchtesensor
 void schaltuhr(){
+  //Serial.println("schaltuhr");
     
     if (timer_int_1 > 0){
       if (stunden == timer_h_1 && minuten == timer_m_1 && !pumpe){
-        digitalWrite(32,LOW);
+        digitalWrite(relayPumpe,LOW);
         pumpe=true;
         timer_on=true;
+        thing.stream(thing["Pumpe"]);
       }
       if (stunden == timer_h_1+(timer_m_1+timer_int_1)/60 && (timer_m_1+timer_int_1)%60 <= minuten && pumpe){
-        digitalWrite(32,HIGH);
+        digitalWrite(relayPumpe,HIGH);
         pumpe = false;
         timer_on=false;
+        thing.stream(thing["Pumpe"]);
       }   
     }
 
     if (timer_int_2 > 0){
       if (stunden == timer_h_2 && minuten == timer_m_2 && !pumpe){
-        digitalWrite(32,LOW);
+        digitalWrite(relayPumpe,LOW);
         pumpe = true;
         timer_on=true;
+        thing.stream(thing["Pumpe"]);
       }
       if (stunden == timer_h_2+(timer_m_2+timer_int_2)/60 && (timer_m_2+timer_int_2)%60 <= minuten && pumpe){
-        digitalWrite(32,HIGH);
+        digitalWrite(relayPumpe,HIGH);
         pumpe = false;
         timer_on=false;
+        thing.stream(thing["Pumpe"]);
       }   
     }
 
     if (bodenfeuchte > intBodenfeuchte && !pumpe){
-      digitalWrite(32,LOW);
+      digitalWrite(relayPumpe,LOW);
       pumpe=true;
+      thing.stream(thing["Pumpe"]);
     }
     if (bodenfeuchte<=intBodenfeuchte && pumpe && !timer_on){
-      digitalWrite(32,HIGH);
+      digitalWrite(relayPumpe,HIGH);
       pumpe=false;
+      thing.stream(thing["Pumpe"]);
     }
   }
 
 void manuelleMessung(){
+  
+  Serial.println("Manuele Messung aufgerufen");
     digitalWrite(23, HIGH);
+    Serial.println("LED leuchtet");
+    digitalWrite(trigPin, LOW);
+    Serial.println("TrigPin LOW");
     bodenfeuchte = analogRead(34);
     //temperatur = dht.readTemperature();
+    Serial.println("Bodenfeuchte gemessen:");
+    Serial.println(bodenfeuchte);
+
     sensors.requestTemperatures();
-    temperatur = sensors.getTempCByIndex(0);
+    if (abs(sensors.getTempCByIndex(0)-temperatur)>1){
+      temperatur = sensors.getTempCByIndex(0);
+    }
+    
+    Serial.println("Temperatur gemessen: ");
+    Serial.println(temperatur);
+
+    delayMicroseconds(5);
+    digitalWrite(trigPin, HIGH);
+    Serial.println("TrigPin HIGH");
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    Serial.println("TrigPin LOW");
+    duration = pulseIn(echoPin, HIGH);
+    distance = duration*0.034/2;
+    //if (distance<50){
+    //  distance =50;
+    //  }
+    
+    volumen = 100*3.14*(14-distance/10);
+    Serial.println("Distanz = ");
+    Serial.println(distance);
+
     messung = false;
     delay(200);
     digitalWrite(23,LOW);
+    Serial.println("LED ausgeschaltet");
 }
 
 //Sichert die Daten auf dem ESP32
 void sicherung(){
+  Serial.println("sicherung");
   prefs.putInt("intBodenfeuchte", intBodenfeuchte);
   prefs.putInt("timer_h_1", timer_h_1);
   prefs.putInt("timer_h_2", timer_h_2);
@@ -188,6 +246,7 @@ void sicherung(){
 
 //Holt die gesicherten Daten vom ESP32
 void back(){
+  Serial.println("back");
   intBodenfeuchte = prefs.getInt("intBodenfeuchte", 0);
   timer_h_1 = prefs.getInt("timer_h_1", 0);
   timer_h_2 = prefs.getInt("timer_h_2", 0);
@@ -210,6 +269,10 @@ void setup() {
 
   prefs.begin("garten", false);
   back();
+
+  // WiFi.mode(WIFI_STA);
+  thing.add_wifi(SSID, SSID_PASSWORD);
+  //Serial.println("thing.add_wifi(SSID, SSID_PASSWORD);");
   
   
   // Init and get the time
@@ -226,9 +289,15 @@ void setup() {
     pinMode(RelIn[i], OUTPUT);
     digitalWrite(RelIn[i], HIGH);
   }
-  manuelleMessung();
 
-  thing.add_wifi(SSID, SSID_PASSWORD);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+
+  manuelleMessung();
+  Serial.println("manuelle Messung durchgeführt im Setup");
+
+  
 
   
   thing["led"] <<digitalPin(23);
@@ -256,8 +325,13 @@ void setup() {
       out["Luftfeuchtigkeit"] = luftfeuchtigkeit;
       out["Temperatur"] = temperatur;
 };
+  thing["Zisterne"] >> [](pson& out){ 
+    out["Distanz"] = distance; 
+    out["Volumen"] = volumen;
+    };
   
   thing["Anzahl_Öffnungen"] >> [](pson& out){ out = anzOeffnung; };
+  thing["Pumpe"] >> [](pson& out){ out = pumpe; };
   thing["Hebezeit"] << [](pson& in){
     if(in.is_empty()){
         in = intOeffnung;
@@ -324,19 +398,37 @@ void setup() {
         daten_sichern = in;
     }
   };
+  Serial.println("Things im Setup hinzugefügt, Setup beendet!");
 }
 
 
 
 void loop() {
-  thing.handle();
-  //sensors.requestTemperatures();
+  //Serial.println("Loop gestartet");
 
+  /*
+  if ( WiFi.status() == WL_CONNECTED){
+    thing.handle();
+    Serial.println("thing.handle im loop beendet");
+  } else { 
+    
+    thing.add_wifi(SSID, SSID_PASSWORD);
+    Serial.print("Verbindungsversuch --- WiFi.szatus = ");
+    Serial.println(WiFi.status());
+    
+  }
+  */
+
+  thing.handle();
+  //Serial.println(WiFi.macAddress());
+  
+  //sensors.requestTemperatures();
+  
   if (millis() > messInterval*60*1000 + myTimer) {
     manuelleMessung();
 
-    
-    Serial.println(bodenfeuchte);
+    //Serial.println("Bodenfeuchte:");
+    //Serial.println(bodenfeuchte);
     printLocalTime();
     myTimer = millis();
   }
@@ -350,7 +442,10 @@ void loop() {
   tuerZu=analogRead(tasterPin);
   if (tuerZu ==4095){
     anzOeffnung=0;
+    Serial.println("Tuer zu gedrückt");
   }
+  //Serial.println("tuerZu gemessen im loop");
+  //Serial.println(tuerZu);
   
   if (!manuell){
     oeffnung();
@@ -367,18 +462,20 @@ void loop() {
 
   
 
-  
-    schaltuhr();  
+  if (distance < 125){
+    schaltuhr(); 
+    }
+  //Serial.println("loop beendet"); 
 }
 
 void printLocalTime()
 {
   
   if(!getLocalTime(&timeinfo)){
-    //Serial.println("Failed to obtain time");
+    Serial.println("Failed to obtain time");
     return;
   }
-  //Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
   minuten = timeinfo.tm_min;
   stunden = timeinfo.tm_hour;
 }
