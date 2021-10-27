@@ -2,6 +2,9 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "..\\WLAN.Test-ESP32"
 		}
 	],
 	"settings": {}
