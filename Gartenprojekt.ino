@@ -433,6 +433,13 @@ void setup() {
   // Init and get the time
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   printLocalTime();
+
+  // tür schließen
+  manuell = true;
+  for (i=0; i<4;i++) {
+    auf_ab(relayAb,0);
+  }
+  manuell=false;
 }
 
 
